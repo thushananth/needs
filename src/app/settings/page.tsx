@@ -32,7 +32,7 @@ export default function SettingsPage() {
             Account & Location Settings
           </h1>
           <p className="text-xs text-zinc-500">
-            Manage your personal profile, IP geolocation settings, and provider subscriptions.
+            Manage your personal profile, IP geolocation settings, and provider preferences.
           </p>
         </div>
 
@@ -42,7 +42,7 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* Subscription Tier Banner */}
+        {/* Priority Location Alerts Banner */}
         <div className="rounded-3xl bg-gradient-to-r from-indigo-900 via-zinc-900 to-indigo-950 p-6 text-white shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <span className="rounded-full bg-emerald-400/20 px-3 py-0.5 text-xs font-bold text-emerald-300 border border-emerald-400/30">
@@ -50,7 +50,7 @@ export default function SettingsPage() {
             </span>
             <h3 className="text-lg font-bold">DoNow Unlimited Provider Tier</h3>
             <p className="text-xs text-zinc-300">
-              $19/month • Priority access to high-budget local requests in {location?.city || 'Colombo'}.
+              Priority access to high-budget local requests in {location?.city || 'Colombo'}.
             </p>
           </div>
 
@@ -58,7 +58,7 @@ export default function SettingsPage() {
             onClick={() => setProSubscription(!proSubscription)}
             className="rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold hover:bg-white/20 transition whitespace-nowrap"
           >
-            {proSubscription ? 'Manage Subscription' : 'Upgrade to Pro ($19/mo)'}
+            {proSubscription ? 'Active' : 'Enable Pro Alerts'}
           </button>
         </div>
 

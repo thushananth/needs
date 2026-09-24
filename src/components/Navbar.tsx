@@ -2,30 +2,27 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
+import { usePathname } from 'next/navigation';
 import { useLocation } from '@/context/LocationContext';
+import { useAuth } from '@/context/AuthContext';
 
 export const Navbar: React.FC = () => {
   const pathname = usePathname();
-  const router = useRouter();
-  const { user, signOut } = useAuth();
   const { location, openLocationModal } = useLocation();
+  const { user, signOut, switchRole } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+
+  // Hide 'Post a Request' for Providers
+  const isProvider = user?.role === 'provider';
 
   const navLinks = [
     { name: 'Dashboard', href: '/dashboard' },
     { name: 'Browse Requests', href: '/requests' },
-    { name: 'Post a Request', href: '/requests/create' },
-    { name: 'Messages', href: '/chat', badge: 1 },
-    { name: 'Notifications', href: '/notifications', badge: 2 },
+    ...(!isProvider ? [{ name: 'Post a Request', href: '/requests/create' }] : []),
+    { name: 'Messages', href: '/chat' },
+    { name: 'Notifications', href: '/notifications' },
   ];
-
-  const handleSignOut = () => {
-    signOut();
-    setMobileMenuOpen(false);
-    router.push('/');
-  };
 
   const isActive = (path: string) => pathname === path;
 
@@ -61,17 +58,12 @@ export const Navbar: React.FC = () => {
                 }`}
               >
                 {link.name}
-                {link.badge && (
-                  <span className="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white">
-                    {link.badge}
-                  </span>
-                )}
               </Link>
             ))}
           </nav>
         </div>
 
-        {/* Right Section: Location Pill & Profile / Auth */}
+        {/* Right Section: Location Pill & Role / Auth Controls */}
         <div className="hidden md:flex items-center gap-3">
           {/* IP Location Button */}
           <button
@@ -84,51 +76,114 @@ export const Navbar: React.FC = () => {
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
             <span>
-              {location ? `${location.city}, ${location.region}` : 'Detecting location...'}
+              {location ? `${location.city}, ${location.region}` : 'Detecting...'}
             </span>
             <span className="text-[10px] text-indigo-600 font-semibold dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950 px-1.5 py-0.5 rounded">
               IP
             </span>
           </button>
 
-          {/* User Auth Links / Profile avatar */}
-          <div className="flex items-center gap-2 pl-2 border-l border-zinc-200 dark:border-zinc-800">
-            {user ? (
+          {/* User Role & Profile Navigation */}
+          {user ? (
+            <div className="relative flex items-center gap-2 pl-2 border-l border-zinc-200 dark:border-zinc-800">
+              {/* Role Indicator Pill */}
               <button
-                onClick={handleSignOut}
-                className="rounded-xl px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800 transition"
+                onClick={() => switchRole(user.role === 'provider' ? 'client' : 'provider')}
+                className={`rounded-full px-3 py-1 text-[11px] font-bold transition flex items-center gap-1.5 border ${
+                  isProvider
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-900 hover:bg-emerald-100'
+                    : 'bg-indigo-50 text-indigo-800 border-indigo-200 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-900 hover:bg-indigo-100'
+                }`}
+                title="Click to switch role view"
               >
-                Sign Out
+                <span>{isProvider ? '🛠️ Provider Pro' : '🙋‍♂️ Customer'}</span>
+                <span className="text-[9px] opacity-70">🔄</span>
               </button>
-            ) : (
-              <>
+
+              {/* Profile Avatar & Dropdown */}
+              <div className="relative flex items-center gap-1.5">
+                <button
+                  onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                  className="flex items-center gap-2 rounded-xl p-1 text-xs font-semibold text-zinc-800 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                >
+                  <img
+                    src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
+                    alt={user.name}
+                    className="h-8 w-8 rounded-full object-cover border border-zinc-300 dark:border-zinc-700"
+                  />
+                  <span className="max-w-[100px] truncate">{user.name}</span>
+                </button>
+
+                {/* Direct Sign Out Button in Header */}
+                <button
+                  onClick={() => signOut()}
+                  className="rounded-xl border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-700 hover:bg-rose-600 hover:text-white dark:border-rose-900/60 dark:bg-rose-950/50 dark:text-rose-300 dark:hover:bg-rose-600 dark:hover:text-white transition"
+                  title="Sign out of your account"
+                >
+                  Sign Out
+                </button>
+
+                {profileDropdownOpen && (
+                  <div className="absolute right-0 top-10 mt-2 w-48 rounded-2xl border border-zinc-200 bg-white p-2 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 z-50 text-xs space-y-1">
+                    <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800">
+                      <span className="block font-bold text-zinc-900 dark:text-white truncate">{user.name}</span>
+                      <span className="block text-[10px] text-zinc-400 truncate">{user.email}</span>
+                      <span className="inline-block mt-1 rounded bg-zinc-100 px-1.5 py-0.5 text-[9px] font-bold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 capitalize">
+                        {user.role === 'provider' ? 'Service Provider' : 'Customer Account'}
+                      </span>
+                    </div>
+                    <Link
+                      href="/dashboard"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      className="block rounded-xl px-3 py-1.5 font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    >
+                      Dashboard
+                    </Link>
+                    <button
+                      onClick={() => {
+                        switchRole(user.role === 'provider' ? 'client' : 'provider');
+                        setProfileDropdownOpen(false);
+                      }}
+                      className="w-full text-left rounded-xl px-3 py-1.5 font-semibold text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950"
+                    >
+                      Switch to {user.role === 'provider' ? 'Customer' : 'Provider'} Mode
+                    </button>
+                    <Link
+                      href="/settings"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      className="block rounded-xl px-3 py-1.5 font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    >
+                      Settings
+                    </Link>
+                    <button
+                      onClick={() => {
+                        signOut();
+                        setProfileDropdownOpen(false);
+                      }}
+                      className="w-full text-left rounded-xl px-3 py-1.5 font-bold text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
+                    >
+                      🚪 Sign Out
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 pl-2 border-l border-zinc-200 dark:border-zinc-800">
               <Link
-                href="/login"
+                href="/login?role=client"
                 className="rounded-xl px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800 transition"
               >
-                Sign In
+                Customer Sign In
               </Link>
               <Link
-                href="/signup"
-                className="rounded-xl bg-indigo-600 px-4 py-1.5 text-xs font-bold text-white shadow-md shadow-indigo-600/20 hover:bg-indigo-500 transition"
+                href="/login?role=provider"
+                className="rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-500 transition"
               >
-                Join DoNow
+                Provider Sign In
               </Link>
-              </>
-            )}
-
-            <Link
-              href="/settings"
-              className="ml-1 h-8 w-8 rounded-full border border-zinc-300 overflow-hidden dark:border-zinc-700 hover:ring-2 hover:ring-indigo-500 transition"
-              title="Profile & Settings"
-            >
-              <img
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
-                alt="User Avatar"
-                className="h-full w-full object-cover"
-              />
-            </Link>
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Mobile menu button */}
@@ -164,37 +219,43 @@ export const Navbar: React.FC = () => {
                 }`}
               >
                 <span>{link.name}</span>
-                {link.badge && (
-                  <span className="rounded-full bg-rose-500 px-2 py-0.5 text-[9px] font-bold text-white">
-                    {link.badge}
-                  </span>
-                )}
               </Link>
             ))}
           </div>
 
-          <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+          <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 flex flex-col space-y-2">
             {user ? (
-              <button onClick={handleSignOut} className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-                Sign Out
-              </button>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-zinc-900 dark:text-white">
+                  {user.name} ({user.role === 'provider' ? 'Provider' : 'Customer'})
+                </span>
+                <button
+                  onClick={() => {
+                    signOut();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="rounded-lg bg-rose-600 px-3 py-1 text-xs font-bold text-white shadow-sm"
+                >
+                  Sign Out
+                </button>
+              </div>
             ) : (
-              <>
-              <Link
-                href="/login"
-                onClick={() => setMobileMenuOpen(false)}
-                className="text-xs font-semibold text-zinc-700 dark:text-zinc-300"
-              >
-                Sign In
-              </Link>
-              <Link
-                href="/signup"
-                onClick={() => setMobileMenuOpen(false)}
-                className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white"
-              >
-                Get Started
-              </Link>
-              </>
+              <div className="grid grid-cols-2 gap-2">
+                <Link
+                  href="/login?role=client"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="rounded-xl border border-zinc-200 bg-white py-2 text-xs font-bold text-center text-zinc-800"
+                >
+                  Customer Sign In
+                </Link>
+                <Link
+                  href="/login?role=provider"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="rounded-xl bg-emerald-600 py-2 text-xs font-bold text-center text-white"
+                >
+                  Provider Sign In
+                </Link>
+              </div>
             )}
           </div>
         </div>

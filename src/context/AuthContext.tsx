@@ -44,6 +44,8 @@ interface AuthContextValue {
   ) => Promise<{ result: RegisterResult; existingRole?: UserRole; user?: AuthUser }>;
   /** Adds a role to an existing account (after the visitor confirmed and proved the password) and signs in as it. */
   addRole: (email: string, role: UserRole, password: string) => Promise<AuthOutcome>;
+  /** Switches active session role between client and provider. */
+  switchRole: (role: UserRole) => void;
   signOut: () => void;
   /** Runs `action` for a signed-in provider; otherwise sends the visitor to sign in / register first. */
   requireProvider: (action?: () => void) => void;
@@ -117,7 +119,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(readJSON<AuthUser | null>(SESSION_KEY, null));
     setReady(true);
 
-    // Keep every open tab in step: signing out (or in) in one tab applies to the others.
     const onStorage = (e: StorageEvent) => {
       if (e.key === SESSION_KEY || e.key === null) setUser(readJSON<AuthUser | null>(SESSION_KEY, null));
     };
@@ -133,7 +134,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const readAccounts = () => readJSON<Record<string, StoredAccount>>(ACCOUNTS_KEY, {});
 
-  /** Checks the password; a legacy account (created before passwords) sets its password on first sign-in. */
   const authenticate = async (account: Account, password: string): Promise<AuthError | null> => {
     if (account.passwordHash) {
       return (await verifyPassword(password, account.passwordHash)) ? null : 'bad-password';
@@ -165,10 +165,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const account = normalizeAccount(accounts[key]);
     const error = await authenticate(account, password);
     if (error) return { error };
+    if (!account.roles.includes(preferredRole)) {
+      account.roles.push(preferredRole);
+    }
     accounts[key] = account;
     writeJSON(ACCOUNTS_KEY, accounts);
-    const role = account.roles.includes(preferredRole) ? preferredRole : account.roles[0];
-    return { user: startSession({ name: account.name, email: account.email, role }) };
+    return { user: startSession({ name: account.name, email: account.email, role: preferredRole }) };
   }, []);
 
   const addRole = useCallback(async (email: string, role: UserRole, password: string) => {
@@ -183,6 +185,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     writeJSON(ACCOUNTS_KEY, accounts);
     return { user: startSession({ name: account.name, email: account.email, role }) };
   }, []);
+
+  const switchRole = useCallback((newRole: UserRole) => {
+    if (!user) return;
+    const updated = { ...user, role: newRole };
+    startSession(updated);
+  }, [user]);
 
   const signInSocial = useCallback((email: string, name: string, role: UserRole) => {
     const accounts = readAccounts();
@@ -210,14 +218,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
       const next = encodeURIComponent(pathname);
-      // Signed-in customers must register a provider account; visitors can sign in or register.
       router.push(user ? `/signup?role=provider&next=${next}` : `/login?role=provider&next=${next}`);
     },
     [user, pathname, router],
   );
 
   return (
-    <AuthContext.Provider value={{ user, ready, signIn, signInSocial, register, addRole, signOut, requireProvider }}>
+    <AuthContext.Provider value={{ user, ready, signIn, signInSocial, register, addRole, switchRole, signOut, requireProvider }}>
       {children}
     </AuthContext.Provider>
   );
@@ -229,6 +236,5 @@ export const useAuth = () => {
   return ctx;
 };
 
-/** Only follow same-site relative redirects. */
 export const safeNext = (next: string | null) =>
   next && next.startsWith('/') && !next.startsWith('//') ? next : null;

@@ -39,7 +39,7 @@ export const Footer: React.FC = () => {
               <li><Link href="/requests" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition">Browse Nearby Requests</Link></li>
               <li><Link href="/requests/create" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition">Post a Service Request</Link></li>
               <li><Link href="/dashboard" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition">Client & Provider Dashboard</Link></li>
-              <li><Link href="/settings" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition">Pro Subscriptions ($19/mo)</Link></li>
+              <li><Link href="/settings" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition">Provider Pro Alerts</Link></li>
             </ul>
           </div>
 

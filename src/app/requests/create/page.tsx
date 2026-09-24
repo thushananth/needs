@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
@@ -22,6 +23,44 @@ export default function CreateRequestPage() {
   const [budgetAmount, setBudgetAmount] = useState('40');
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Provider Guard: Post Request is for Customers only
+  if (user?.role === 'provider') {
+    return (
+      <div className="min-h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950 font-sans">
+        <Navbar />
+        <main className="flex-1 mx-auto w-full max-w-2xl px-4 py-16 sm:px-6 lg:px-8 text-center space-y-6">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 text-3xl">
+            🛠️
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-black text-zinc-900 dark:text-white">
+              Customer Feature Only
+            </h1>
+            <p className="text-xs text-zinc-600 dark:text-zinc-400 max-w-md mx-auto leading-relaxed">
+              You are currently signed in as a <strong>Service Provider</strong>. Posting job requests is reserved for customers looking to hire local help.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-center gap-3 pt-2">
+            <Link
+              href="/requests"
+              className="rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white shadow-md hover:bg-emerald-500 transition"
+            >
+              Browse Open Jobs to Quote →
+            </Link>
+            <Link
+              href="/dashboard"
+              className="rounded-xl border border-zinc-200 bg-white px-5 py-2.5 text-xs font-bold text-zinc-800 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200"
+            >
+              Go to Provider Dashboard
+            </Link>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -229,7 +268,7 @@ export default function CreateRequestPage() {
           <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 text-xs text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200 flex items-center gap-3">
             <span className="text-2xl">🤖</span>
             <div>
-              <span className="font-bold">Instant AI Matching Enabled:</span> Once posted, your request will be matched with <strong>48 verified pros</strong> in {location?.city || 'Colombo'}.
+              <span className="font-bold">Instant AI Matching Enabled:</span> Once posted, your request will be matched with verified local pros in {location?.city || 'Colombo'}.
             </div>
           </div>
 
