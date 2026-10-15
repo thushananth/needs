@@ -1,12 +1,17 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation } from '@/context/LocationContext';
 import { MOCK_PROVIDERS, filterByLocation } from '@/data/mockData';
+import { usePrices } from '@/context/PriceContext';
+import type { ProviderPriceData } from '@/lib/priceService';
 
 export const NearbyProviders: React.FC = () => {
   const { location, isLoading } = useLocation();
+  const { fetchProviderPrice } = usePrices();
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  // Map from a mock provider email-stub to its Firestore price data
+  const [firestorePrices, setFirestorePrices] = useState<Record<string, ProviderPriceData>>({});
 
   const { matchedItems, matchScope } = useMemo(() => {
     return filterByLocation(MOCK_PROVIDERS, location);
@@ -18,6 +23,20 @@ export const NearbyProviders: React.FC = () => {
       prov.category.toLowerCase().includes(selectedCategory.toLowerCase())
     );
   }, [matchedItems, selectedCategory]);
+
+  // Fetch Firestore prices for each displayed provider (keyed by provider ID used as email-stub)
+  useEffect(() => {
+    if (filteredProviders.length === 0) return;
+    filteredProviders.forEach((prov) => {
+      // Use provider id as the email key (in real app this would be the provider's actual email)
+      fetchProviderPrice(prov.id).then((data) => {
+        if (data) {
+          setFirestorePrices((prev) => ({ ...prev, [prov.id]: data }));
+        }
+      }).catch(() => { /* silently ignore */ });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredProviders]);
 
   const categories = ['All', 'Plumbing', 'Electrical', 'Cleaning', 'AC Repair', 'Smart Home'];
 
@@ -137,9 +156,24 @@ export const NearbyProviders: React.FC = () => {
                       <span>{prov.rating}</span>
                       <span className="text-zinc-400 font-normal">({prov.reviewsCount})</span>
                     </div>
-                    <div className="text-xs font-bold text-zinc-900 dark:text-white mt-0.5">
-                      {prov.hourlyRate}
-                    </div>
+                    {/* Show Firestore live price if available, otherwise fall back to mock */}
+                    {firestorePrices[prov.id] ? (
+                      <div className="mt-0.5 space-y-0.5">
+                        <div className="text-xs font-black text-emerald-600 dark:text-emerald-400">
+                          {firestorePrices[prov.id].hourlyRate}
+                        </div>
+                        <div className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400">
+                          min {firestorePrices[prov.id].fixedMinimum}
+                        </div>
+                        <span className="inline-block rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                          ● Live
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="text-xs font-bold text-zinc-900 dark:text-white mt-0.5">
+                        {prov.hourlyRate}
+                      </div>
+                    )}
                   </div>
                 </div>
 

@@ -1,13 +1,15 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { LocationModal } from '@/components/LocationModal';
 import { useLocation } from '@/context/LocationContext';
+import { usePrices } from '@/context/PriceContext';
 
 export default function SettingsPage() {
   const { location, openLocationModal, refreshLocation } = useLocation();
+  const { providerPrice, priceSaved, priceError, priceLoading, savePrice } = usePrices();
 
   const [name, setName] = useState('Saman Perera');
   const [email, setEmail] = useState('saman.perera@example.com');
@@ -15,10 +17,34 @@ export default function SettingsPage() {
   const [proSubscription, setProSubscription] = useState(true);
   const [saved, setSaved] = useState(false);
 
-  const handleSave = (e: React.FormEvent) => {
+  // Price form state
+  const [settingsHourlyRate, setSettingsHourlyRate] = useState('');
+  const [settingsFixedMinimum, setSettingsFixedMinimum] = useState('');
+  const [settingsCurrency, setSettingsCurrency] = useState('USD');
+
+  // Populate from Firestore when price data loads
+  useEffect(() => {
+    if (providerPrice) {
+      setSettingsHourlyRate(providerPrice.hourlyRate.replace(/[^0-9.]/g, ''));
+      setSettingsFixedMinimum(providerPrice.fixedMinimum.replace(/[^0-9.]/g, ''));
+      setSettingsCurrency(providerPrice.currency || 'USD');
+    }
+  }, [providerPrice]);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Save profile settings (existing behaviour)
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+    // Also save prices to Firestore if fields are filled
+    if (settingsHourlyRate && settingsFixedMinimum) {
+      const symbol = settingsCurrency === 'USD' ? '$' : settingsCurrency === 'EUR' ? '€' : settingsCurrency === 'GBP' ? '£' : '$';
+      await savePrice({
+        hourlyRate: `${symbol}${settingsHourlyRate}/hr`,
+        fixedMinimum: `${symbol}${settingsFixedMinimum}`,
+        currency: settingsCurrency,
+      });
+    }
   };
 
   return (
@@ -182,7 +208,102 @@ export default function SettingsPage() {
             </div>
           </div>
 
+          {/* ── Service Pricing Card (Firestore-backed) ─────────────────────── */}
+          <div className="rounded-3xl border border-indigo-200 bg-white p-6 shadow-sm dark:border-indigo-900/60 dark:bg-zinc-900 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wider">
+                Service Pricing
+              </h3>
+              <div className="flex items-center gap-2">
+                {priceLoading && (
+                  <span className="text-[10px] text-zinc-400">Loading...</span>
+                )}
+                {providerPrice && !priceLoading && (
+                  <span className="rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                    ✓ Prices Live on Firestore
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {priceSaved && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs font-bold text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200 flex items-center gap-2">
+                <span>✓</span> Prices saved to Firestore!
+              </div>
+            )}
+            {priceError && (
+              <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-bold text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200">
+                ⚠ {priceError}
+              </div>
+            )}
+
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              Set your rates so clients can see your pricing when they browse or view your profile. Saved automatically when you click &quot;Save All Settings&quot;.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Currency */}
+              <div>
+                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  Currency
+                </label>
+                <select
+                  id="settings-currency"
+                  value={settingsCurrency}
+                  onChange={(e) => setSettingsCurrency(e.target.value)}
+                  className="w-full rounded-xl border border-zinc-300 bg-white px-3.5 py-2.5 text-xs text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                >
+                  <option value="USD">USD ($)</option>
+                  <option value="EUR">EUR (€)</option>
+                  <option value="GBP">GBP (£)</option>
+                  <option value="LKR">LKR (Rs)</option>
+                </select>
+              </div>
+
+              {/* Hourly Rate */}
+              <div>
+                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  Hourly Rate
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs font-bold text-zinc-400">$</span>
+                  <input
+                    id="settings-hourly-rate"
+                    type="number"
+                    min="1"
+                    placeholder="45"
+                    value={settingsHourlyRate}
+                    onChange={(e) => setSettingsHourlyRate(e.target.value)}
+                    className="w-full rounded-xl border border-zinc-300 bg-white pl-7 pr-3 py-2.5 text-xs text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                  />
+                </div>
+                <p className="mt-0.5 text-[10px] text-zinc-400">per hour</p>
+              </div>
+
+              {/* Fixed Minimum */}
+              <div>
+                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  Fixed Job Minimum
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs font-bold text-zinc-400">$</span>
+                  <input
+                    id="settings-fixed-minimum"
+                    type="number"
+                    min="1"
+                    placeholder="80"
+                    value={settingsFixedMinimum}
+                    onChange={(e) => setSettingsFixedMinimum(e.target.value)}
+                    className="w-full rounded-xl border border-zinc-300 bg-white pl-7 pr-3 py-2.5 text-xs text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                  />
+                </div>
+                <p className="mt-0.5 text-[10px] text-zinc-400">minimum per job</p>
+              </div>
+            </div>
+          </div>
+
           {/* Submit */}
+
           <div className="flex justify-end">
             <button
               type="submit"

@@ -9,6 +9,7 @@ import { LocationModal } from '@/components/LocationModal';
 import { useLocation } from '@/context/LocationContext';
 import { useAuth } from '@/context/AuthContext';
 import { usePostRequest } from '@/data/requestStore';
+import { saveRequestBudget } from '@/lib/priceService';
 
 export default function CreateRequestPage() {
   const router = useRouter();
@@ -65,7 +66,7 @@ export default function CreateRequestPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    setTimeout(() => {
+    setTimeout(async () => {
       const id = `req-u-${Date.now()}`;
       postRequest({
         id,
@@ -81,6 +82,19 @@ export default function CreateRequestPage() {
         country: location?.country || 'Sri Lanka',
         clientName: user?.name || 'Guest Customer',
       });
+
+      // Also persist budget to Firestore
+      try {
+        await saveRequestBudget(id, {
+          budget: budgetType === 'hourly' ? `$${budgetAmount}/hr` : `$${budgetAmount}`,
+          budgetType,
+          requestId: id,
+          clientName: user?.name || 'Guest Customer',
+        });
+      } catch {
+        // Non-fatal: local request is already posted
+      }
+
       setSubmitting(false);
       router.push(`/requests/${id}`);
     }, 900);

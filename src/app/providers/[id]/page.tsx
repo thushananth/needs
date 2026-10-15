@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { LocationModal } from '@/components/LocationModal';
 import { MOCK_PROVIDERS } from '@/data/mockData';
+import { usePrices } from '@/context/PriceContext';
+import type { ProviderPriceData } from '@/lib/priceService';
 
 export default function ProviderProfilePage() {
   const params = useParams();
@@ -14,6 +16,18 @@ export default function ProviderProfilePage() {
 
   const provider = MOCK_PROVIDERS.find((p) => p.id === providerId) || MOCK_PROVIDERS[0];
   const [hireModalOpen, setHireModalOpen] = useState(false);
+
+  // Firestore price
+  const { fetchProviderPrice } = usePrices();
+  const [firestorePrice, setFirestorePrice] = useState<ProviderPriceData | null>(null);
+
+  useEffect(() => {
+    if (providerId) {
+      fetchProviderPrice(providerId)
+        .then((data) => { if (data) setFirestorePrice(data); })
+        .catch(() => { /* silently ignore */ });
+    }
+  }, [providerId, fetchProviderPrice]);
 
   if (!provider) {
     return (
@@ -96,7 +110,15 @@ export default function ProviderProfilePage() {
               </div>
               <div>
                 <span className="text-zinc-400 block text-[10px]">Hourly Rate</span>
-                <span className="text-zinc-900 dark:text-white font-bold text-sm">{provider.hourlyRate}</span>
+                {firestorePrice ? (
+                  <div className="space-y-0.5">
+                    <span className="text-emerald-600 font-black text-sm dark:text-emerald-400">{firestorePrice.hourlyRate}</span>
+                    <div className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400">min {firestorePrice.fixedMinimum}</div>
+                    <span className="inline-block rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">● Live Price</span>
+                  </div>
+                ) : (
+                  <span className="text-zinc-900 dark:text-white font-bold text-sm">{provider.hourlyRate}</span>
+                )}
               </div>
               <div>
                 <span className="text-zinc-400 block text-[10px]">Response Time</span>
@@ -193,6 +215,23 @@ export default function ProviderProfilePage() {
               <p className="text-xs text-zinc-500">
                 Directly book this pro for your job with DoNow Escrow Protection.
               </p>
+
+              {/* Firestore live pricing breakdown */}
+              {firestorePrice && (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 space-y-2 dark:border-emerald-900/50 dark:bg-emerald-950/30">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-zinc-500 font-semibold">Hourly Rate</span>
+                    <span className="font-black text-emerald-700 dark:text-emerald-300 text-sm">{firestorePrice.hourlyRate}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-zinc-500 font-semibold">Fixed Minimum</span>
+                    <span className="font-black text-indigo-700 dark:text-indigo-300 text-sm">{firestorePrice.fixedMinimum}</span>
+                  </div>
+                  <div className="pt-1 border-t border-emerald-200 dark:border-emerald-900/40">
+                    <span className="inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">● Live Firestore Price</span>
+                  </div>
+                </div>
+              )}
 
               <div className="pt-2">
                 <button

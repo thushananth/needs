@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
@@ -8,12 +8,38 @@ import { LocationModal } from '@/components/LocationModal';
 import { NearbyProviders } from '@/components/NearbyProviders';
 import { useLocation } from '@/context/LocationContext';
 import { useAuth } from '@/context/AuthContext';
+import { usePrices } from '@/context/PriceContext';
 
 export default function DashboardPage() {
   const { location, openLocationModal } = useLocation();
   const { user, signOut, switchRole } = useAuth();
+  const { providerPrice, priceSaved, priceError, priceLoading, savePrice } = usePrices();
 
   const isProvider = user?.role === 'provider';
+
+  // Local form state for provider price setting
+  const [hourlyRate, setHourlyRate] = useState('');
+  const [fixedMinimum, setFixedMinimum] = useState('');
+  const [currency, setCurrency] = useState('USD');
+
+  // Populate form from Firestore when price data loads
+  useEffect(() => {
+    if (providerPrice) {
+      setHourlyRate(providerPrice.hourlyRate.replace(/[^0-9.]/g, ''));
+      setFixedMinimum(providerPrice.fixedMinimum.replace(/[^0-9.]/g, ''));
+      setCurrency(providerPrice.currency || 'USD');
+    }
+  }, [providerPrice]);
+
+  const handlePriceSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const symbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$';
+    await savePrice({
+      hourlyRate: `${symbol}${hourlyRate}/hr`,
+      fixedMinimum: `${symbol}${fixedMinimum}`,
+      currency,
+    });
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950 font-sans">
@@ -148,6 +174,116 @@ export default function DashboardPage() {
                   <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">⚡ &lt; 15 Mins</span>
                 </div>
               </div>
+            </div>
+
+            {/* ── Price Setting Card (Firestore-backed) ─────────────────────── */}
+            <div className="rounded-3xl border border-indigo-200 bg-white p-6 shadow-sm dark:border-indigo-900/60 dark:bg-zinc-900 space-y-4">
+              <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">💰</span>
+                  <div>
+                    <h2 className="text-base font-bold text-zinc-900 dark:text-white">Set Your Service Prices</h2>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">Saved to Firestore — visible to clients browsing your profile.</p>
+                  </div>
+                </div>
+                {providerPrice && (
+                  <span className="rounded-full bg-emerald-100 px-3 py-0.5 text-xs font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                    ✓ Prices Live
+                  </span>
+                )}
+              </div>
+
+              {/* Current live prices summary */}
+              {providerPrice && !priceLoading && (
+                <div className="flex flex-wrap gap-3">
+                  <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2 dark:bg-emerald-950/40">
+                    <span className="text-xs text-zinc-500">Hourly Rate:</span>
+                    <span className="text-sm font-black text-emerald-700 dark:text-emerald-300">{providerPrice.hourlyRate}</span>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-xl bg-indigo-50 px-4 py-2 dark:bg-indigo-950/40">
+                    <span className="text-xs text-zinc-500">Fixed Minimum:</span>
+                    <span className="text-sm font-black text-indigo-700 dark:text-indigo-300">{providerPrice.fixedMinimum}</span>
+                  </div>
+                </div>
+              )}
+
+              {priceSaved && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs font-bold text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200 flex items-center gap-2">
+                  <span>✓</span> Prices saved to Firestore successfully!
+                </div>
+              )}
+              {priceError && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-bold text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200">
+                  ⚠ {priceError}
+                </div>
+              )}
+
+              <form onSubmit={handlePriceSave} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {/* Currency */}
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-800 dark:text-zinc-200 mb-1">Currency</label>
+                    <select
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                      className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-xs text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                    >
+                      <option value="USD">USD ($)</option>
+                      <option value="EUR">EUR (€)</option>
+                      <option value="GBP">GBP (£)</option>
+                      <option value="LKR">LKR (Rs)</option>
+                    </select>
+                  </div>
+
+                  {/* Hourly Rate */}
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-800 dark:text-zinc-200 mb-1">Hourly Rate</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-xs font-bold text-zinc-400">$</span>
+                      <input
+                        id="dashboard-hourly-rate"
+                        type="number"
+                        min="1"
+                        required
+                        placeholder="45"
+                        value={hourlyRate}
+                        onChange={(e) => setHourlyRate(e.target.value)}
+                        className="w-full rounded-xl border border-zinc-300 bg-white pl-7 pr-3 py-2.5 text-xs font-bold text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                      />
+                    </div>
+                    <p className="mt-0.5 text-[10px] text-zinc-400">per hour</p>
+                  </div>
+
+                  {/* Fixed Minimum */}
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-800 dark:text-zinc-200 mb-1">Fixed Job Minimum</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-xs font-bold text-zinc-400">$</span>
+                      <input
+                        id="dashboard-fixed-minimum"
+                        type="number"
+                        min="1"
+                        required
+                        placeholder="80"
+                        value={fixedMinimum}
+                        onChange={(e) => setFixedMinimum(e.target.value)}
+                        className="w-full rounded-xl border border-zinc-300 bg-white pl-7 pr-3 py-2.5 text-xs font-bold text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                      />
+                    </div>
+                    <p className="mt-0.5 text-[10px] text-zinc-400">minimum per job</p>
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    id="dashboard-save-prices-btn"
+                    className="rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 transition flex items-center gap-2"
+                  >
+                    💾 Save Prices to Firestore
+                  </button>
+                </div>
+              </form>
             </div>
 
             {/* Provider Alert Stream */}
